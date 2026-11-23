@@ -138,7 +138,45 @@
     position: absolute; inset: 0; display: none; place-content: center;
     color: #9db4e0; font: 14px/1.8 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
     text-align: center;
+  }  /* ---- 摄像头手势 ---- */
+  #camBtn {
+    position: absolute; left: 1.6%; bottom: 1.6%;
+    display: inline-flex; align-items: center; gap: .5em;
+    padding: .45em 1em; border-radius: 999px;
+    border: 1px solid rgba(180, 205, 255, .22);
+    background: rgba(10, 16, 30, .5);
+    color: rgba(222, 232, 255, .85);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    letter-spacing: .12em; cursor: pointer; white-space: nowrap;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: border-color .35s ease, box-shadow .35s ease, background .35s ease, color .35s ease;
   }
+  #camBtn:hover { border-color: rgba(255, 200, 228, .6); box-shadow: 0 0 20px rgba(255, 150, 205, .35); }
+  #camBtn.on { color: #fff0f7; border-color: rgba(255, 190, 225, .55); background: rgba(74, 34, 60, .6); box-shadow: 0 0 22px rgba(255, 140, 200, .4); }
+  #camBtn[disabled] { opacity: .6; cursor: default; }
+  #camBtn .ico { font-size: 1.05em; opacity: .9; }
+
+  #camBox {
+    position: absolute; right: 2.4%; bottom: 7%;
+    width: 190px; height: 140px; border-radius: 14px; overflow: hidden;
+    border: 1px solid rgba(255, 190, 225, .3);
+    background: rgba(6, 8, 14, .72);
+    box-shadow: 0 0 28px rgba(255, 140, 200, .18);
+    display: none; pointer-events: none;
+  }
+  #camBox.on { display: block; }
+  #camBox video { position: absolute; left: 0; top: 0; width: 2px; height: 2px; opacity: 0; pointer-events: none; }
+  #camDraw { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #gestureTag {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 3px 6px 4px;
+    font: 10px/1.4 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    color: rgba(255, 228, 242, .9);
+    background: linear-gradient(to top, rgba(0, 0, 0, .78), rgba(0, 0, 0, 0));
+    text-align: center; letter-spacing: .04em; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+
 </style>
 </head>
 <body>
@@ -150,6 +188,12 @@
     <div id="text"></div>
     <button id="musicBtn" type="button" aria-label="音乐开关"><span class="ico">♪</span><span class="lbl">圣诞音乐</span></button>
     <div id="hint">按住拖动即可转动圣诞树 · 轻点放烟花 · 双击全屏</div>
+    <button id="camBtn" type="button" aria-label="手势开关"><span class="ico">◉</span><span class="lbl">开启手势</span></button>
+    <div id="camBox">
+      <video id="cam" playsinline muted autoplay></video>
+      <canvas id="camDraw" width="220" height="168"></canvas>
+      <div id="gestureTag">手势：待机</div>
+    </div>
     <div id="fallback">当前浏览器不支持 WebGL，请更新浏览器或开启硬件加速后重试。</div>
   </div>
 </div>
@@ -695,7 +739,7 @@
       musicBtn.style.bottom = Math.round(h * 0.03) + "px";
       musicBtn.style.transform = "translateX(-50%)";
       hintEl.style.display = "block";
-      hintEl.textContent = "\u2b05 手指左右拖动 \u00b7 转动圣诞树 \u27a1";
+      hintEl.textContent = "举起手左右移动 · 转动圣诞树 · 点左下角「开启手势」";
     } else {
       musicBtn.style.fontSize = Math.max(10, 13 * k) + "px";
       musicBtn.style.padding = "0.45em 1em";
@@ -705,13 +749,13 @@
       musicBtn.style.bottom = "auto";
       musicBtn.style.transform = "none";
       hintEl.style.display = "block";
-      hintEl.textContent = "按住拖动即可转动圣诞树 \u00b7 轻点放烟花 \u00b7 双击全屏";
+      hintEl.textContent = "举手左右移动转动 · 张掌点亮 · 食指放烟花 · 握拳收拢 · 剪刀手星雨 · 点赞开音乐";
     }
 
     updateSnow(0);
     drawSnow();
     drawSparks();
-    drawSparks();
+    placeCamBox();
   }
 
   window.addEventListener("resize", layout);
@@ -735,8 +779,16 @@
     lastTime = now;
     if (dt > 0.12) dt = 0.12;   // 切后台回来时防止跳帧
 
-    // 旋转：拖动时世界由手直接带动；松手后惯性滑行；静止一会儿再恢复自动慢转
+    // 旋转：鼠标拖动 / 摄像头手势优先带动；松手后惯性滑行；静止一会儿再恢复自动慢转
     if (drag.down) {
+      drag.idleSince = now;
+    } else if (hand.seen) {
+      drag.idleSince = now;          // 手在画面里时，角度由手势实时驱动
+      hand.spin *= Math.exp(-dt * 3.0);
+    } else if (hand.spin !== 0) {
+      angle += hand.spin * dt;       // 手离开画面后，余速继续滑一小段
+      hand.spin *= Math.exp(-dt * 2.2);
+      if (Math.abs(hand.spin) < 0.01) hand.spin = 0;
       drag.idleSince = now;
     } else if (drag.spin !== 0) {
       angle += drag.spin * dt;
@@ -756,14 +808,18 @@
     drawSparks();
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    view.glow += (view.glowTarget - view.glow) * Math.min(1, dt * 3.5);
+    view.pitch += (hand.pitchTarget - view.pitch) * Math.min(1, dt * 2.2);
+    gl.uniform1f(U.pitch, view.pitch);
+    gl.uniform1f(U.camDist, view.dist);
     gl.uniform1f(U.angle, angle);
 
     /* 第一遍：柔和辉光（叠加混合，不写深度） */
     gl.depthMask(false);
     gl.disable(gl.DEPTH_TEST);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-    gl.uniform1f(U.sizeMul, 2.7);
-    gl.uniform1f(U.alpha, 0.09);
+    gl.uniform1f(U.sizeMul, 2.7 + (view.glow - 1) * 1.1);
+    gl.uniform1f(U.alpha, Math.max(0.02, 0.09 * view.glow));
     gl.drawArrays(gl.POINTS, 0, parts.count);
 
     /* 第二遍：粒子本体（正常透明混合 + 深度测试，近处遮挡远处） */
@@ -771,7 +827,7 @@
     gl.enable(gl.DEPTH_TEST);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.uniform1f(U.sizeMul, 1.0);
-    gl.uniform1f(U.alpha, 1.0);
+    gl.uniform1f(U.alpha, Math.min(1, 0.8 + 0.2 * view.glow));
     gl.drawArrays(gl.POINTS, 0, parts.count);
 
     rafHandle = requestAnimationFrame(frame);
@@ -943,6 +999,7 @@
   document.addEventListener("pointerdown", function (e) {
     if (!e || !e.target) return;
     if (musicBtn && musicBtn.contains(e.target)) return;
+    if (camBtnEl && camBtnEl.contains(e.target)) return;
     gTap = true; gX = e.clientX; gY = e.clientY;
   });
   document.addEventListener("pointerup", function (e) {
@@ -1035,6 +1092,7 @@
 
   stageEl.addEventListener("pointerdown", function (e) {
     if (musicBtn && musicBtn.contains(e.target)) return;
+    if (camBtnEl && camBtnEl.contains(e.target)) return;
     if (typeof e.button === "number" && e.button > 0) return;
     drag.down = true;
     drag.id = e.pointerId;
@@ -1078,6 +1136,353 @@
   }
   stageEl.addEventListener("pointerup", endDrag);
   stageEl.addEventListener("pointercancel", endDrag);
+
+  /* ==================== 摄像头手势控制（MediaPipe HandLandmarker） ==================== */
+  const view = { pitch: CFG.pitch, dist: CFG.camDist, glow: 1, glowTarget: 1 };
+
+  const hand = {
+    seen: false, init: false, x: 0.5, y: 0.5, lastT: 0,
+    spin: 0, gesture: "", cand: "", stable: 0, pitchTarget: CFG.pitch,
+    lastFire: 0, lastBurst: 0, lastLike: 0, waveAcc: 0, waveSign: 0, waveT: 0
+  };
+
+  const camBtnEl = document.getElementById("camBtn");
+  const camBoxEl = document.getElementById("camBox");
+  const camVideoEl = document.getElementById("cam");
+  const camDrawEl = document.getElementById("camDraw");
+  const camCtx = camDrawEl ? camDrawEl.getContext("2d") : null;
+  const gestureTagEl = document.getElementById("gestureTag");
+
+  const CAM_BUNDLE = "https://fastly.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+  const CAM_WASM = "https://fastly.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+  const CAM_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+  function camSay(t) { if (gestureTagEl) gestureTagEl.textContent = t; }
+
+  function placeCamBox() {
+    if (!camBoxEl) return;
+    const portrait = stageEl.classList.contains("portrait");
+    let wpx, hpx;
+    if (portrait) {
+      wpx = Math.round(Math.min(146, Math.max(96, stageW * 0.37)));
+      hpx = Math.round(wpx * 0.76);
+      camBoxEl.style.left = "auto";
+      camBoxEl.style.right = Math.round(stageW * 0.028) + "px";
+      camBoxEl.style.top = Math.round(stageH * 0.115) + "px";
+      camBoxEl.style.bottom = "auto";
+    } else {
+      wpx = Math.round(Math.min(198, Math.max(112, stageW * 0.15)));
+      hpx = Math.round(wpx * 0.74);
+      camBoxEl.style.left = "auto";
+      camBoxEl.style.right = Math.round(stageW * 0.024) + "px";
+      camBoxEl.style.top = "auto";
+      camBoxEl.style.bottom = Math.round(stageH * 0.082) + "px";
+    }
+    camBoxEl.style.width = wpx + "px";
+    camBoxEl.style.height = hpx + "px";
+  }
+  window.addEventListener("resize", placeCamBox);
+
+  /* ---- 挥手触发星芒爆发 ---- */
+  function starBurst(cx, cy) {
+    spawnFirework(cx, cy);
+    view.glowTarget = 2.4;
+    setTimeout(function () { view.glowTarget = 1; }, 520);
+    hand.lastBurst = performance.now();
+  }
+
+  /* ---- 手势 → 场景动作 ---- */
+  function applyGesture(now) {
+    const g = hand.gesture;
+
+    if (g === "open") {
+      view.glowTarget = 1.85;              // 张开手掌：整棵树亮起来
+      camSay("张开手掌 · 点亮圣诞树");
+    } else if (g === "fist") {
+      view.glowTarget = 0.58;              // 握拳：收拢、暗下去
+      camSay("握拳 · 收拢微光");
+    } else {
+      view.glowTarget = 1;
+    }
+
+    if (g === "point" && hand.pointPos) {
+      if (now - hand.lastFire > 420) {
+        const sc = snowCanvas.height / DESIGN_H;
+        const px = (hand.pointPos.x * snowCanvas.width) / sc;
+        const py = (hand.pointPos.y * snowCanvas.height) / sc;
+        spawnFirework(px, py);
+        hand.lastFire = now;
+        camSay("食指指向 · 放烟花");
+      }
+    } else if (g === "scissors") {
+      if (now - hand.lastBurst > 1100) {
+        starBurst(DESIGN_W * (0.35 + Math.random() * 0.3), DESIGN_H * (0.28 + Math.random() * 0.22));
+        camSay("剪刀手 · 星芒齐放");
+      }
+    } else if (g === "like") {
+      if (now - hand.lastLike > 1400) {
+        hand.lastLike = now;
+        if (Music.isOn()) stopMusic(); else playMusic();
+        camSay(Music.isOn() ? "点赞 · 音乐已开" : "点赞 · 音乐已关");
+      }
+    }
+  }
+
+  /* ---- 摄像头 + 识别引擎 ---- */
+  const Cam = (function () {
+    let engine = null, stream = null, loopId = 0, lastDetect = 0, lastVT = -1, running = false;
+
+    const SKEL = [
+      [0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8],
+      [5, 9], [9, 10], [10, 11], [11, 12], [9, 13], [13, 14], [14, 15], [15, 16],
+      [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]
+    ];
+
+    function setBtn(state) {
+      if (!camBtnEl) return;
+      const lbl = camBtnEl.querySelector(".lbl");
+      camBtnEl.classList.toggle("on", state === "on");
+      if (lbl) lbl.textContent = state === "on" ? "关闭手势" : (state === "loading" ? "手势加载中…" : "开启手势");
+      camBtnEl.disabled = (state === "loading");
+    }
+
+    async function buildEngine(mod) {
+      const fileset = await mod.FilesetResolver.forVisionTasks(CAM_WASM);
+      const mk = function (delegate) {
+        return mod.HandLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: CAM_MODEL, delegate: delegate },
+          runningMode: "VIDEO",
+          numHands: 1,
+          minHandDetectionConfidence: 0.5,
+          minHandPresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+      };
+      try { return await mk("GPU"); } catch (e) { return await mk("CPU"); }
+    }
+
+    async function start() {
+      if (running) return;
+      setBtn("loading");
+      camSay("正在打开摄像头…");
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+      } catch (e) {
+        setBtn("off");
+        camSay("没有拿到摄像头权限");
+        if (hintEl) {
+          hintEl.style.opacity = "1";
+          hintEl.textContent = "摄像头被拒绝或不可用 · 可直接用鼠标/手指拖动";
+        }
+        return;
+      }
+
+      camVideoEl.srcObject = stream;
+      try { await camVideoEl.play(); } catch (e) { /* 某些浏览器自动播放即可 */ }
+
+      if (!engine) {
+        camSay("正在加载手势模型…");
+        try {
+          const mod = await import(CAM_BUNDLE);
+          engine = await buildEngine(mod);
+        } catch (e) {
+          setBtn("off");
+          camSay("模型加载失败，请检查网络后重试");
+          return;
+        }
+      }
+
+      running = true;
+      hand.init = false;
+      hand.seen = false;
+      hand.gesture = "";
+      hand.cand = "";
+      hand.stable = 0;
+      if (camBoxEl) camBoxEl.classList.add("on");
+      placeCamBox();
+      setBtn("on");
+      playMusic();                     // 用户点击按钮的这次交互里起播，符合浏览器自动播放策略
+      camSay("举起手，左右移动试试");
+      lastDetect = 0;
+      loopId = requestAnimationFrame(loop);
+    }
+
+    function stop() {
+      running = false;
+      if (loopId) { cancelAnimationFrame(loopId); loopId = 0; }
+      if (stream) {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        stream = null;
+      }
+      if (camVideoEl) camVideoEl.srcObject = null;
+      hand.seen = false;
+      hand.spin = 0;
+      hand.gesture = "";
+      view.glowTarget = 1;
+      if (camBoxEl) camBoxEl.classList.remove("on");
+      setBtn("off");
+      camSay("手势已关闭");
+    }
+
+    function loop(now) {
+      if (!running) return;
+      loopId = requestAnimationFrame(loop);
+      const v = camVideoEl;
+      if (!v || v.readyState < 2 || !engine) return;
+      if (now - lastDetect < 55) return;
+      if (v.currentTime === lastVT) return;
+      lastDetect = now;
+      lastVT = v.currentTime;
+
+      let res = null;
+      try { res = engine.detectForVideo(v, now); } catch (e) { return; }
+      const list = (res && res.landmarks) || [];
+      drawHud(v, list[0] || null);
+      handle(list[0] || null, now);
+    }
+
+    function drawHud(v, l) {
+      if (!camCtx) return;
+      const cw = camDrawEl.width, ch = camDrawEl.height;
+      camCtx.save();
+      camCtx.translate(cw, 0);
+      camCtx.scale(-1, 1);                     // 镜像，符合照镜子的直觉
+      camCtx.drawImage(v, 0, 0, cw, ch);
+      camCtx.restore();
+
+      if (!l) return;
+      camCtx.strokeStyle = "rgba(255, 170, 214, .85)";
+      camCtx.lineWidth = Math.max(1, cw / 110);
+      for (let i = 0; i < SKEL.length; i++) {
+        const a = l[SKEL[i][0]], b = l[SKEL[i][1]];
+        camCtx.beginPath();
+        camCtx.moveTo((1 - a.x) * cw, a.y * ch);
+        camCtx.lineTo((1 - b.x) * cw, b.y * ch);
+        camCtx.stroke();
+      }
+      camCtx.fillStyle = "rgba(255, 236, 246, .95)";
+      for (let i = 0; i < l.length; i++) {
+        const p = l[i];
+        camCtx.beginPath();
+        camCtx.arc((1 - p.x) * cw, p.y * ch, Math.max(1.2, cw / 90), 0, TAU);
+        camCtx.fill();
+      }
+      // 指尖加一个小十字，提示"指哪打哪"
+      const tip = l[8];
+      if (tip) {
+        camCtx.strokeStyle = "rgba(255, 255, 255, .9)";
+        const tx = (1 - tip.x) * cw, ty = tip.y * ch;
+        camCtx.beginPath();
+        camCtx.moveTo(tx - 5, ty); camCtx.lineTo(tx + 5, ty);
+        camCtx.moveTo(tx, ty - 5); camCtx.lineTo(tx, ty + 5);
+        camCtx.stroke();
+      }
+    }
+
+    function fingerUp(l, tip, pip, mcp) {
+      const w = l[0];
+      const d = function (a, b) { return Math.hypot(a.x - b.x, a.y - b.y); };
+      const t = d(l[tip], w), p = d(l[pip], w);
+      return t > p * 1.16 && t > 0.02;
+    }
+
+    function classify(l) {
+      const thumb = Math.hypot(l[4].x - l[17].x, l[4].y - l[17].y) >
+                    Math.hypot(l[2].x - l[17].x, l[2].y - l[17].y) * 1.25;
+      const idx = fingerUp(l, 8, 6, 5);
+      const mid = fingerUp(l, 12, 10, 9);
+      const rng = fingerUp(l, 16, 14, 13);
+      const pky = fingerUp(l, 20, 18, 17);
+      const cnt = (thumb ? 1 : 0) + (idx ? 1 : 0) + (mid ? 1 : 0) + (rng ? 1 : 0) + (pky ? 1 : 0);
+
+      if (cnt >= 4) return "open";
+      if (cnt === 0) return "fist";
+      if (idx && !mid && !rng && !pky) return "point";
+      if (idx && mid && !rng && !pky) return "scissors";
+      if (thumb && !idx && !mid && !rng && !pky) return "like";
+      return "hand";
+    }
+
+    function handle(l, now) {
+      if (!l) {
+        hand.seen = false;
+        hand.init = false;
+        hand.gesture = "";
+        hand.cand = "";
+        hand.stable = 0;
+        view.glowTarget = 1;
+        camSay("把手放进画面里");
+        return;
+      }
+
+      // 掌心 = 腕 + 四个掌骨根的平均
+      const ids = [0, 5, 9, 13, 17];
+      let px = 0, py = 0;
+      for (let i = 0; i < ids.length; i++) { px += l[ids[i]].x; py += l[ids[i]].y; }
+      px /= ids.length; py /= ids.length;
+
+      const mx = 1 - px, my = py;       // 镜像后的屏幕比例坐标
+      const dtm = hand.lastT ? Math.min(0.3, Math.max(0.028, (now - hand.lastT) / 1000)) : 0;
+
+      if (!hand.init || dtm === 0) {
+        hand.x = mx; hand.y = my; hand.init = true; hand.lastT = now;
+      } else {
+        const nx = hand.x + (mx - hand.x) * 0.34;
+        const ny = hand.y + (my - hand.y) * 0.28;
+        const dx = nx - hand.x, dy = ny - hand.y;
+        hand.x = nx; hand.y = ny;
+        hand.lastT = now;
+
+        // 左右移动 = 转动圣诞树（跟手）
+        const dAngle = -dx * TAU * 0.85;
+        angle += dAngle;
+        hand.spin = Math.max(-6.5, Math.min(6.5, dAngle / dtm));
+
+        // 上下移动 = 改变俯瞰角度
+        hand.pitchTarget = Math.max(-0.78, Math.min(-0.1, -0.78 + (1 - ny) * 0.62));
+
+        // 挥手累积
+        const spd = Math.abs(dx) / dtm;
+        const sign = dx > 0 ? 1 : -1;
+        if (spd > 0.35) {
+          if (hand.waveSign !== sign) { hand.waveAcc = 0; hand.waveSign = sign; }
+          hand.waveAcc += Math.abs(dx);
+          if (hand.waveAcc > 0.26 && now - hand.waveT > 900) {
+            hand.waveT = now;
+            hand.waveAcc = 0;
+            starBurst(DESIGN_W * (0.4 + Math.random() * 0.2), DESIGN_H * (0.3 + Math.random() * 0.2));
+            camSay("挥手 · 星芒爆发");
+          }
+        } else {
+          hand.waveAcc *= 0.85;
+        }
+      }
+
+      hand.pointPos = l[8];
+      hand.seen = true;
+
+      // 手势去抖：连续 3 次一致才切换
+      const g = classify(l);
+      if (g !== hand.cand) { hand.cand = g; hand.stable = 0; }
+      else if (hand.stable < 3) hand.stable++;
+      if (hand.stable >= 3 && hand.gesture !== g) hand.gesture = g;
+
+      applyGesture(now);
+    }
+
+    return { start: start, stop: stop, isRunning: function () { return running; } };
+  })();
+
+  if (camBtnEl) {
+    camBtnEl.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (Cam.isRunning()) Cam.stop(); else Cam.start();
+    });
+  }
+  placeCamBox();
 
   /* ==================== 小交互 ==================== */
   document.addEventListener("dblclick", function () {
