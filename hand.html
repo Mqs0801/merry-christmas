@@ -176,6 +176,73 @@
     text-align: center; letter-spacing: .04em; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis;
   }
+  /* ---- 树上挂的照片 ---- */
+  #photoLayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+  .pol {
+    position: absolute; left: 0; top: 0; width: 96px;
+    transform-origin: 50% 50%; opacity: 0;
+    will-change: transform, opacity;
+  }
+  .pol .pin {
+    position: absolute; left: 50%; top: -9px; width: 12px; height: 12px;
+    margin-left: -6px; border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #fff3f8, #ff9dc8 55%, #b8477e);
+    box-shadow: 0 0 10px rgba(255, 150, 200, .8);
+  }
+  .pol .frame {
+    position: relative;
+    padding: 5px 5px 16px;
+    border-radius: 7px;
+    background: linear-gradient(160deg, #fffdf9, #f3e6ec 55%, #e7d3de);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .55), 0 0 18px rgba(255, 160, 205, .35),
+                inset 0 0 0 1px rgba(255, 255, 255, .5);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .pol .frame img { display: block; width: 100%; height: auto; max-height: 118px;
+    object-fit: cover; border-radius: 3px; }
+  .pol .frame .empty {
+    display: none; width: 100%; height: 86px; border-radius: 3px;
+    border: 1px dashed rgba(150, 90, 120, .55); color: rgba(140, 80, 110, .7);
+    font: 20px/86px -apple-system, "Microsoft YaHei", sans-serif; text-align: center;
+  }
+  .pol:not(.has) .frame img { display: none; }
+  .pol:not(.has) .frame .empty { display: block; }
+  .pol .frame::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 14px;
+    background: repeating-linear-gradient(45deg, rgba(180, 120, 150, .12) 0 6px, rgba(180, 120, 150, .04) 6px 12px);
+  }
+
+  #picBtn {
+    position: absolute; left: 1.6%; bottom: 11.5%;
+    display: inline-flex; align-items: center; gap: .5em;
+    padding: .45em 1em; border-radius: 999px;
+    border: 1px solid rgba(255, 200, 228, .28);
+    background: rgba(26, 12, 24, .5);
+    color: rgba(255, 228, 242, .88);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    letter-spacing: .1em; cursor: pointer; white-space: nowrap;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    transition: border-color .3s ease, box-shadow .3s ease, background .3s ease;
+  }
+  #picBtn:hover { border-color: rgba(255, 210, 235, .7); box-shadow: 0 0 20px rgba(255, 150, 205, .35); }
+  #picBtn .ico { font-size: 1.05em; }
+  #picInput { display: none; }
+  /* 竖屏：挂照片按钮缩成右侧小圆钮，避开左下「开启手势」和落款 */
+  @media (max-aspect-ratio: 1/1) {
+    #picBtn { left: auto; right: 4%; bottom: 30%; padding: 0; width: 46px; height: 46px; border-radius: 50%; justify-content: center; }
+    #picBtn .lbl { display: none; }
+    #picBtn .ico { font-size: 1.35em; line-height: 1; }
+  }
+
+  /* 摘下照片时的提示光环 */
+  #pickFlash {
+    position: absolute; width: 0; height: 0; border-radius: 50%;
+    border: 1px solid rgba(255, 210, 235, .8);
+    box-shadow: 0 0 26px rgba(255, 160, 210, .55) inset, 0 0 30px rgba(255, 160, 210, .5);
+    pointer-events: none; opacity: 0;
+  }
 
 </style>
 </head>
@@ -188,6 +255,10 @@
     <div id="text"></div>
     <button id="musicBtn" type="button" aria-label="音乐开关"><span class="ico">♪</span><span class="lbl">圣诞音乐</span></button>
     <div id="hint">按住拖动即可转动圣诞树 · 轻点放烟花 · 双击全屏</div>
+    <div id="photoLayer"></div>
+    <div id="pickFlash"></div>
+    <button id="picBtn" type="button" aria-label="添加照片"><span class="ico">＋</span><span class="lbl">挂张照片</span></button>
+    <input id="picInput" type="file" accept="image/*" multiple>
     <button id="camBtn" type="button" aria-label="手势开关"><span class="ico">◉</span><span class="lbl">开启手势</span></button>
     <div id="camBox">
       <video id="cam" playsinline muted autoplay></video>
@@ -739,7 +810,7 @@
       musicBtn.style.bottom = Math.round(h * 0.03) + "px";
       musicBtn.style.transform = "translateX(-50%)";
       hintEl.style.display = "block";
-      hintEl.textContent = "举起手左右移动 · 转动圣诞树 · 点左下角「开启手势」";
+      hintEl.textContent = "举手转动 · 捏合摘照片";
     } else {
       musicBtn.style.fontSize = Math.max(10, 13 * k) + "px";
       musicBtn.style.padding = "0.45em 1em";
@@ -749,7 +820,7 @@
       musicBtn.style.bottom = "auto";
       musicBtn.style.transform = "none";
       hintEl.style.display = "block";
-      hintEl.textContent = "举手左右移动转动 · 张掌点亮 · 食指放烟花 · 握拳收拢 · 剪刀手星雨 · 点赞开音乐";
+      hintEl.textContent = "举手转动 · 张掌点亮 · 食指烟花 · 捏合摘照片";
     }
 
     updateSnow(0);
@@ -786,7 +857,7 @@
       drag.idleSince = now;          // 手在画面里时，角度由手势实时驱动
       hand.spin *= Math.exp(-dt * 3.0);
     } else if (hand.spin !== 0) {
-      angle += hand.spin * dt;       // 手离开画面后，余速继续滑一小段
+      angle += hand.spin * dt;
       hand.spin *= Math.exp(-dt * 2.2);
       if (Math.abs(hand.spin) < 0.01) hand.spin = 0;
       drag.idleSince = now;
@@ -801,6 +872,7 @@
       if (ramp > 0) angle += CFG.rotateSpeed * ramp * dt;
     }
 
+    updatePhotos(dt, now);
     updateSnow(dt);
     updateSparks(dt);
     drawSnow();
@@ -1000,6 +1072,7 @@
     if (!e || !e.target) return;
     if (musicBtn && musicBtn.contains(e.target)) return;
     if (camBtnEl && camBtnEl.contains(e.target)) return;
+    if (picBtnEl && picBtnEl.contains(e.target)) return;
     gTap = true; gX = e.clientX; gY = e.clientY;
   });
   document.addEventListener("pointerup", function (e) {
@@ -1093,6 +1166,7 @@
   stageEl.addEventListener("pointerdown", function (e) {
     if (musicBtn && musicBtn.contains(e.target)) return;
     if (camBtnEl && camBtnEl.contains(e.target)) return;
+    if (picBtnEl && picBtnEl.contains(e.target)) return;
     if (typeof e.button === "number" && e.button > 0) return;
     drag.down = true;
     drag.id = e.pointerId;
@@ -1137,12 +1211,293 @@
   stageEl.addEventListener("pointerup", endDrag);
   stageEl.addEventListener("pointercancel", endDrag);
 
+  /* ==================== 树上挂照片（自己添加 · 捏合摘下） ==================== */
+  const PHOTO_N = 5;
+  const PHOTO_KEY = "xmas_photos_v1";
+  const photoLayerEl = document.getElementById("photoLayer");
+  const picBtnEl = document.getElementById("picBtn");
+  const picInputEl = document.getElementById("picInput");
+  const pickFlashEl = document.getElementById("pickFlash");
+
+  const photos = [];
+  let photoUrls = [];
+
+  const PHOTO_SPOTS = [
+    { a: 0.78, y: 2.9, rot: -6 },
+    { a: 2.35, y: 4.8, rot: 5 },
+    { a: 3.85, y: 6.1, rot: -3 },
+    { a: 5.40, y: 4.0, rot: 4 },
+    { a: 1.55, y: 7.6, rot: -4 }
+  ];
+
+  function photoRadius(y) {
+    const h = Math.max(0, Math.min(1, y / CFG.treeHeight));
+    return Math.pow(1 - h, 1.1) * 4.3 * 0.92;
+  }
+
+  (function buildPhotoBoxes() {
+    for (let i = 0; i < PHOTO_N; i++) {
+      const s = PHOTO_SPOTS[i];
+      const box = document.createElement("div");
+      box.className = "pol";
+      box.innerHTML = '<div class="pin"></div><div class="frame"><img alt="照片"><span class="empty">＋</span></div>';
+      if (photoLayerEl) photoLayerEl.appendChild(box);
+      const r = photoRadius(s.y);
+      photos.push({
+        el: box, img: box.querySelector("img"),
+        x: Math.cos(s.a) * r, y: s.y, z: Math.sin(s.a) * r,
+        state: "tree", fade: 0, sx: 0, sy: 0, size: 96, alpha: 0,
+        vx: 0, vy: 0, awayAt: 0, rot: s.rot, zoom: 1
+      });
+    }
+  })();
+
+  /* ---- 拾取音效（与背景音乐互不影响） ---- */
+  const SFX = (function () {
+    let ctx = null;
+    function ensure() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!ctx && AC) ctx = new AC();
+      if (ctx && ctx.state === "suspended" && ctx.resume) ctx.resume();
+      return ctx;
+    }
+    function ding(freq, dur, gain) {
+      const c = ensure();
+      if (!c) return;
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = "triangle";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(gain, c.currentTime + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0006, c.currentTime + dur);
+      o.connect(g);
+      g.connect(c.destination);
+      o.start();
+      o.stop(c.currentTime + dur + 0.06);
+    }
+    return {
+      pick: function () { ding(920, 0.2, 0.05); setTimeout(function () { ding(1380, 0.16, 0.032); }, 85); },
+      drop: function () { ding(470, 0.18, 0.03); },
+      resume: ensure
+    };
+  })();
+
+  function applyPhotoUrls(urls) {
+    photoUrls = (urls || []).filter(function (u) {
+      return typeof u === "string" && u.indexOf("data:image/") === 0;
+    }).slice(0, PHOTO_N);
+    for (let i = 0; i < photos.length; i++) {
+      const ph = photos[i], u = photoUrls[i];
+      if (u) {
+        ph.img.src = u;
+        ph.el.classList.add("has");
+      } else {
+        ph.img.removeAttribute("src");
+        ph.el.classList.remove("has");
+      }
+    }
+  }
+
+  function savePhotoUrls() {
+    try { localStorage.setItem(PHOTO_KEY, JSON.stringify(photoUrls)); }
+    catch (e) { /* 配额不足就只留这一次会话 */ }
+  }
+
+  function addPhotoFiles(files) {
+    const list = Array.prototype.slice.call(files || [], 0, PHOTO_N);
+    if (!list.length) return;
+    const slots = [];
+    let pending = list.length;
+    function commit() {
+      const next = [];
+      for (let i = 0; i < PHOTO_N; i++) next.push(slots[i] || photoUrls[i] || null);
+      applyPhotoUrls(next);
+      savePhotoUrls();
+      if (hintEl) {
+        hintEl.style.opacity = "1";
+        hintEl.textContent = "照片挂好了 · 用手捏住照片，再松手就能摘下来";
+      }
+    }
+    list.forEach(function (file) {
+      const fr = new FileReader();
+      fr.onload = function () {
+        const im = new Image();
+        im.onload = function () {
+          const max = 520;
+          const sc = Math.min(1, max / Math.max(im.width, im.height));
+          const cv = document.createElement("canvas");
+          cv.width = Math.max(1, Math.round(im.width * sc));
+          cv.height = Math.max(1, Math.round(im.height * sc));
+          cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
+          slots.push(cv.toDataURL("image/jpeg", 0.82));
+          pending--;
+          if (pending <= 0) commit();
+        };
+        im.onerror = function () { pending--; if (pending <= 0) commit(); };
+        im.src = fr.result;
+      };
+      fr.onerror = function () { pending--; if (pending <= 0) commit(); };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  if (picBtnEl) {
+    picBtnEl.addEventListener("click", function (e) {
+      e.stopPropagation();
+      SFX.resume();
+      if (picInputEl) picInputEl.click();
+    });
+  }
+  if (picInputEl) {
+    picInputEl.addEventListener("change", function () {
+      addPhotoFiles(picInputEl.files);
+      picInputEl.value = "";
+    });
+  }
+
+  /* ---- 摘下的提示光环 ---- */
+  function flashPick(cssX, cssY) {
+    if (!pickFlashEl) return;
+    pickFlashEl.style.transition = "none";
+    pickFlashEl.style.transform = "translate(-50%,-50%) translate(" + cssX + "px," + cssY + "px)";
+    pickFlashEl.style.width = "14px";
+    pickFlashEl.style.height = "14px";
+    pickFlashEl.style.opacity = "1";
+    requestAnimationFrame(function () {
+      pickFlashEl.style.transition = "all .55s cubic-bezier(.2,.7,.2,1)";
+      pickFlashEl.style.width = "150px";
+      pickFlashEl.style.height = "150px";
+      pickFlashEl.style.opacity = "0";
+    });
+  }
+
+  /* ---- 捏合 → 摘照片 ---- */
+  function tryPickPhoto() {
+    const W = glCanvas.width, H = glCanvas.height;
+    if (!W || !H) return false;
+    const px = hand.pinchX * W, py = hand.pinchY * H;
+    let best = null, bestD = 1e9;
+    for (let i = 0; i < photos.length; i++) {
+      const ph = photos[i];
+      if (ph.state !== "tree" || ph.alpha < 0.45) continue;
+      const d = Math.hypot(ph.sx - px, ph.sy - py);
+      if (d < ph.size * 1.3 && d < bestD) { best = ph; bestD = d; }
+    }
+    if (!best) return false;
+    best.state = "held";
+    best.sx = px;
+    best.sy = py;
+    best.zoom = 0.72;
+    SFX.pick();
+    flashPick(best.sx * (stageW / W), best.sy * (stageH / H));
+    if (gestureTagEl) gestureTagEl.textContent = "捏住照片 · 摘下来看看";
+    return true;
+  }
+
+  function releasePhotos() {
+    for (let i = 0; i < photos.length; i++) {
+      const ph = photos[i];
+      if (ph.state !== "held") continue;
+      ph.state = "fly";
+      ph.vx = uniform(-26, 26);
+      ph.vy = -130;
+      SFX.drop();
+    }
+  }
+
+  function setPol(ph, x, y, size, alpha, rot) {
+    if (alpha < 0.02) { ph.el.style.opacity = "0"; return; }
+    ph.el.style.opacity = alpha.toFixed(3);
+    ph.el.style.transform = "translate(-50%,-50%) translate(" + x.toFixed(1) + "px," +
+      y.toFixed(1) + "px) scale(" + (size / 96).toFixed(3) + ") rotate(" + rot.toFixed(1) + "deg)";
+  }
+
+  function updatePhotos(dt, now) {
+    const W = glCanvas.width, H = glCanvas.height;
+    if (!W || !H) return;
+    const ca = Math.cos(angle), sa = Math.sin(angle);
+    const cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+    const k = stageW / W;                       // 画布像素 → CSS 像素
+
+    for (let i = 0; i < photos.length; i++) {
+      const ph = photos[i];
+
+      /* 手里拿着 */
+      if (ph.state === "held") {
+        if (hand.pinch) {
+          ph.sx += (hand.pinchX * W - ph.sx) * 0.26;
+          ph.sy += (hand.pinchY * H - ph.sy) * 0.26;
+        }
+        ph.zoom += (1.14 - ph.zoom) * 0.22;
+        ph.alpha = 1;
+        ph.size = 132;
+        setPol(ph, ph.sx * k, ph.sy * k, ph.size * ph.zoom, 1,
+               ph.rot + Math.sin(now / 240) * 3.2);
+        continue;
+      }
+
+      /* 松手后飘走 */
+      if (ph.state === "fly") {
+        ph.sx += ph.vx * dt;
+        ph.sy += ph.vy * dt;
+        ph.vy += 92 * dt;
+        ph.alpha -= dt * 0.85;
+        if (ph.alpha <= 0.03) {
+          ph.state = "away";
+          ph.awayAt = now;
+          ph.alpha = 0;
+          ph.el.style.opacity = "0";
+          continue;
+        }
+        setPol(ph, ph.sx * k, ph.sy * k, ph.size * 1.03, ph.alpha, ph.rot + 14);
+        continue;
+      }
+
+      /* 飘走一会儿后悄悄回到树上 */
+      if (ph.state === "away") {
+        if (now - ph.awayAt > 3400) { ph.state = "tree"; ph.fade = 0; }
+        else continue;
+      }
+
+      /* 挂在树上：跟着树一起旋转 */
+      const xz = ph.x * ca - ph.z * sa;
+      const zz = ph.x * sa + ph.z * ca;
+      const yp = ph.y * cp - zz * sp - CFG.camHeight;
+      const zp = ph.y * sp + zz * cp + view.dist;
+      if (zp <= 0.3) { ph.el.style.opacity = "0"; continue; }
+
+      const f = curProj / zp;
+      const sx = W * 0.5 + xz * f;
+      const sy = H * 0.5 - yp * f + curOffY;
+      const size = Math.min(250, Math.max(26, 1.22 * f));
+
+      const rr = Math.max(0.001, Math.hypot(ph.x, ph.z));
+      const face = zz / rr;                       // +1 = 正对镜头
+      let alpha = Math.max(0, Math.min(1, (face + 0.28) / 0.55));
+      ph.fade = Math.min(1, ph.fade + dt * 1.8);
+      alpha *= ph.fade;
+      if (!photoUrls[i]) alpha *= 0.72;          // 空槽位淡一点，别抢树的戏
+
+      ph.sx = sx; ph.sy = sy; ph.size = size; ph.alpha = alpha;
+      setPol(ph, sx * k, sy * k, size, alpha, ph.rot);
+    }
+  }
+
+  (function loadPhotos() {
+    let urls = [];
+    try {
+      const s = localStorage.getItem(PHOTO_KEY);
+      if (s) urls = JSON.parse(s) || [];
+    } catch (e) { urls = []; }
+    applyPhotoUrls(urls);
+  })();
+
   /* ==================== 摄像头手势控制（MediaPipe HandLandmarker） ==================== */
   const view = { pitch: CFG.pitch, dist: CFG.camDist, glow: 1, glowTarget: 1 };
 
   const hand = {
     seen: false, init: false, x: 0.5, y: 0.5, lastT: 0,
-    spin: 0, gesture: "", cand: "", stable: 0, pitchTarget: CFG.pitch,
+    spin: 0, gesture: "", cand: "", stable: 0, pitchTarget: CFG.pitch, pinch: false, pinchX: 0.5, pinchY: 0.5,
     lastFire: 0, lastBurst: 0, lastLike: 0, waveAcc: 0, waveSign: 0, waveT: 0
   };
 
@@ -1195,7 +1550,9 @@
   function applyGesture(now) {
     const g = hand.gesture;
 
-    if (g === "open") {
+    if (g === "pinch") {
+      camSay("捏合 · 试试摘照片");
+    } else if (g === "open") {
       view.glowTarget = 1.85;              // 张开手掌：整棵树亮起来
       camSay("张开手掌 · 点亮圣诞树");
     } else if (g === "fist") {
@@ -1319,8 +1676,10 @@
       }
       if (camVideoEl) camVideoEl.srcObject = null;
       hand.seen = false;
+      hand.pinch = false;
       hand.spin = 0;
       hand.gesture = "";
+      releasePhotos();
       view.glowTarget = 1;
       if (camBoxEl) camBoxEl.classList.remove("on");
       setBtn("off");
@@ -1390,6 +1749,10 @@
     }
 
     function classify(l) {
+      const palmW = Math.hypot(l[5].x - l[17].x, l[5].y - l[17].y);
+      const pinchD = Math.hypot(l[4].x - l[8].x, l[4].y - l[8].y);
+      const idx0 = fingerUp(l, 8, 6, 5);
+      if (pinchD < palmW * 0.30 && idx0) return "pinch";   // 拇指食指捏合 = 拾取
       const thumb = Math.hypot(l[4].x - l[17].x, l[4].y - l[17].y) >
                     Math.hypot(l[2].x - l[17].x, l[2].y - l[17].y) * 1.25;
       const idx = fingerUp(l, 8, 6, 5);
@@ -1409,6 +1772,7 @@
     function handle(l, now) {
       if (!l) {
         hand.seen = false;
+        if (hand.pinch) { hand.pinch = false; releasePhotos(); }
         hand.init = false;
         hand.gesture = "";
         hand.cand = "";
@@ -1463,6 +1827,16 @@
 
       hand.pointPos = l[8];
       hand.seen = true;
+
+      /* 捏合拾取：捏上去抓照片，松开手照片飘走 */
+      const palmW = Math.hypot(l[5].x - l[17].x, l[5].y - l[17].y);
+      const pinchD = Math.hypot(l[4].x - l[8].x, l[4].y - l[8].y);
+      const wasPinch = hand.pinch;
+      hand.pinch = pinchD < palmW * 0.30 && fingerUp(l, 8, 6, 5);
+      hand.pinchX = 1 - (l[4].x + l[8].x) * 0.5;
+      hand.pinchY = (l[4].y + l[8].y) * 0.5;
+      if (hand.pinch && !wasPinch) tryPickPhoto();
+      if (!hand.pinch && wasPinch) releasePhotos();
 
       // 手势去抖：连续 3 次一致才切换
       const g = classify(l);
