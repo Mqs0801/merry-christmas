@@ -1024,11 +1024,11 @@
     const zp = y0 * sp + CFG.camDist;
     const yp = y0 * cp - CFG.camHeight;
     const f = curProj / zp;
-    const size = Math.min(glCanvas.height * 0.095, f * 0.95);
+    const size = Math.min(glCanvas.height * 0.085, f * 0.92);
     return {
       x: glCanvas.width * 0.5,
       y: glCanvas.height * 0.5 - yp * f + curOffY + size * 0.2
-         + (stageEl.classList.contains("portrait") ? glCanvas.height * 0.018 : 0),
+         + (stageEl.classList.contains("portrait") ? glCanvas.height * 0.03 : 0),
       size: size
     };
   }
