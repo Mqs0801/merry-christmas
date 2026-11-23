@@ -1168,7 +1168,7 @@
       hpx = Math.round(wpx * 0.76);
       camBoxEl.style.left = "auto";
       camBoxEl.style.right = Math.round(stageW * 0.028) + "px";
-      camBoxEl.style.top = Math.round(stageH * 0.115) + "px";
+      camBoxEl.style.top = Math.round(stageH * 0.16) + "px";
       camBoxEl.style.bottom = "auto";
     } else {
       wpx = Math.round(Math.min(198, Math.max(112, stageW * 0.15)));
@@ -1267,7 +1267,7 @@
       camSay("正在打开摄像头…");
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } },
           audio: false
         });
       } catch (e) {
@@ -1332,7 +1332,7 @@
       loopId = requestAnimationFrame(loop);
       const v = camVideoEl;
       if (!v || v.readyState < 2 || !engine) return;
-      if (now - lastDetect < 55) return;
+      if (now - lastDetect < 65) return;
       if (v.currentTime === lastVT) return;
       lastDetect = now;
       lastVT = v.currentTime;
@@ -1473,7 +1473,7 @@
       applyGesture(now);
     }
 
-    return { start: start, stop: stop, isRunning: function () { return running; } };
+    return { start: start, stop: stop, isRunning: function () { return running; }, handle: handle };
   })();
 
   if (camBtnEl) {
@@ -1483,6 +1483,15 @@
     });
   }
   placeCamBox();
+
+  /* 调试入口：可在控制台喂入归一化关键点，检查手势判定与动作（不影响正常使用） */
+  window.__camTest = {
+    state: hand,
+    view: view,
+    feed: function (l) { hand.init = true; Cam.handle(l, performance.now()); },
+    angle: function () { return angle; },
+    sparks: function () { return sparks.length; }
+  };
 
   /* ==================== 小交互 ==================== */
   document.addEventListener("dblclick", function () {
