@@ -57,6 +57,11 @@
     color: #fff; line-height: 1.02;
     text-shadow: 0 0 0.9em rgba(150, 185, 255, .65), 0 0 2.2em rgba(120, 160, 255, .35);
   }
+  #stage.portrait #hint {
+    right: auto; left: 50%; transform: translateX(-50%);
+    bottom: auto; top: 2.2%; text-align: center;
+    font-size: 11px !important; color: rgba(235, 214, 228, .55);
+  }
   #hint {
     position: absolute; right: 1.5%; bottom: 1.5%;
     font: 12px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -689,7 +694,8 @@
       musicBtn.style.top = "auto";
       musicBtn.style.bottom = Math.round(h * 0.03) + "px";
       musicBtn.style.transform = "translateX(-50%)";
-      hintEl.style.display = "none";
+      hintEl.style.display = "block";
+      hintEl.textContent = "\u2b05 手指左右拖动 \u00b7 转动圣诞树 \u27a1";
     } else {
       musicBtn.style.fontSize = Math.max(10, 13 * k) + "px";
       musicBtn.style.padding = "0.45em 1em";
@@ -699,6 +705,7 @@
       musicBtn.style.bottom = "auto";
       musicBtn.style.transform = "none";
       hintEl.style.display = "block";
+      hintEl.textContent = "按住拖动即可转动圣诞树 \u00b7 轻点放烟花 \u00b7 双击全屏";
     }
 
     updateSnow(0);
@@ -1047,7 +1054,7 @@
     const tNow = performance.now();
     const dx = e.clientX - drag.lastX;
     const dtm = Math.max(8, tNow - drag.lastT) / 1000;
-    const dAngle = dx * dragK();
+    const dAngle = -dx * dragK();
     angle += dAngle;
     drag.vx = dAngle / dtm;
     drag.lastX = e.clientX;
@@ -1081,7 +1088,7 @@
       el.requestFullscreen().catch(function () {});
     }
   });
-  setTimeout(function () { hintEl.style.opacity = "0"; }, 6000);
+  setTimeout(function () { hintEl.style.opacity = "0"; }, 9000);
 
   layout();
   rafHandle = requestAnimationFrame(frame);
