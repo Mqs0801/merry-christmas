@@ -40,11 +40,21 @@
       linear-gradient(to bottom, rgba(0,0,0,0) 50%, rgba(0,0,0,.52) 68%, rgba(0,0,0,.82) 82%, rgba(0,0,0,.96) 96%),
       linear-gradient(to top, rgba(0,0,0,0) 84%, rgba(0,0,0,.45) 100%);
   }
+  /* 宽屏：底部两行加一点暗底，落款压在亮粒子上也看得清 */
+  #stage:not(.portrait) #text .foot {
+    padding: .55em .95em .5em;
+    border-radius: 18px;
+    background:
+      radial-gradient(ellipse 100% 100% at 40% 46%, rgba(0,0,0,.68) 0%, rgba(0,0,0,.42) 68%, rgba(0,0,0,.10) 100%),
+      linear-gradient(to bottom, rgba(0,0,0,0) 24%, rgba(0,0,0,.34) 68%, rgba(0,0,0,.52) 100%);
+  }
   /* 竖屏文字加黑色衬底，压在亮粒子上也能读清（同时保留原有蓝色辉光） */
   #stage.portrait #text .foot {
     padding: .9em 1.15em;
     border-radius: 26px;
-    background: radial-gradient(ellipse 74% 64% at 50% 50%, rgba(0,0,0,.74) 0%, rgba(0,0,0,.46) 56%, rgba(0,0,0,0) 100%);
+    background:
+      radial-gradient(ellipse 92% 86% at 50% 48%, rgba(0,0,0,.88) 0%, rgba(0,0,0,.64) 66%, rgba(0,0,0,.18) 100%),
+      linear-gradient(to bottom, rgba(0,0,0,0) 22%, rgba(0,0,0,.34) 72%, rgba(0,0,0,.5) 100%);
   }
   #stage.portrait #text * {
     text-shadow: 0 0 10px rgba(0,0,0,.92), 0 0 22px rgba(0,0,0,.7), 0 0 0.9em rgba(150,185,255,.5);
@@ -115,7 +125,7 @@
     font-family: "Monotype Corsiva", "Segoe Script", "Brush Script MT",
                  "Lucida Handwriting", "Zapf Chancery", "Apple Chancery", cursive;
     letter-spacing: .2em; color: rgba(244, 249, 255, .95);
-    text-shadow: 0 0 16px rgba(140, 175, 255, .5), 0 0 34px rgba(120, 160, 255, .25);
+    text-shadow: 0 0 4px rgba(0,0,0,.95), 0 0 12px rgba(0,0,0,.8), 0 0 26px rgba(140,175,255,.55), 0 0 44px rgba(120,160,255,.3);
     opacity: 0; animation: fadeUp 1.6s cubic-bezier(.2,.7,.2,1) forwards;
   }
   #text .whisper {
@@ -262,16 +272,7 @@
     <div id="text"></div>
     <button id="musicBtn" type="button" aria-label="音乐开关"><span class="ico">♪</span><span class="lbl">圣诞音乐</span></button>
     <div id="hint">按住拖动即可转动圣诞树 · 轻点放烟花 · 双击全屏</div>
-    <div id="photoLayer"></div>
-    <div id="pickFlash"></div>
-    <button id="picBtn" type="button" aria-label="添加照片"><span class="ico">＋</span><span class="lbl">挂张照片</span></button>
-    <input id="picInput" type="file" accept="image/*" multiple>
-    <button id="camBtn" type="button" aria-label="手势开关"><span class="ico">◉</span><span class="lbl">开启手势</span></button>
-    <div id="camBox">
-      <video id="cam" playsinline muted autoplay></video>
-      <canvas id="camDraw" width="220" height="168"></canvas>
-      <div id="gestureTag">手势：待机</div>
-    </div>
+    <!-- 手势控制与挂照片已按需求移除 -->
     <div id="fallback">当前浏览器不支持 WebGL，请更新浏览器或开启硬件加速后重试。</div>
   </div>
 </div>
@@ -283,15 +284,15 @@
   /* ==================== 全局参数（可自行调整） ==================== */
   const CFG = {
     title: "Merry Christmas",   // 第一行文字
-    name:  "祝圣诞节快乐 天天开心",             // 第二行文字（改这里就能换成你的名字）
+    name:  "圣诞快乐 · 我的女孩",             // 第二行文字（改这里就能换成你的名字）
     poem: [                                   // 名字下面的三行小祝福（随便改）
-      "愿雪落轻一点，日子暖一点。",
-      "愿你想要的，都在来的路上。",
-      "愿你笑的次数，比去年多一点。"
+      "左边那棵像我，右边那棵像你。",
+      "隔着几步路，都在为彼此亮着。",
+      "往后的每个冬天，想陪你这样过。"
     ],
-    footer: "圣诞快乐 · 万事胜意",              // 底部祝福
+    footer: "被温柔偏爱 · 被认真喜欢",              // 底部祝福
     sign:   "马乾舜",                          // 落款（署名）
-    whisper: "把这一年的好天气，都留给你。",    // 横屏左栏底部小字（竖屏自动隐藏）
+    whisper: "有你在的这一冬，比往年都暖。",    // 横屏左栏底部小字（竖屏自动隐藏）
     treePoints:   50000,        // 树体粒子
     groundPoints: 4000,         // 地面光环
     starPoints:   1200,         // 空中星点
@@ -858,7 +859,7 @@
       musicBtn.style.bottom = Math.round(h * 0.03) + "px";
       musicBtn.style.transform = "translateX(-50%)";
       hintEl.style.display = "block";
-      hintEl.textContent = "举手转动 · 捏合摘照片";
+      hintEl.textContent = "按住拖动即可转动 · 轻点放烟花";
     } else {
       musicBtn.style.fontSize = Math.max(10, 13 * k) + "px";
       musicBtn.style.padding = "0.45em 1em";
@@ -868,7 +869,7 @@
       musicBtn.style.bottom = "auto";
       musicBtn.style.transform = "none";
       hintEl.style.display = "block";
-      hintEl.textContent = "举手转动 · 张掌点亮 · 食指烟花 · 捏合摘照片";
+      hintEl.textContent = "按住拖动即可转动圣诞树 · 轻点放烟花 · 双击全屏";
     }
 
     updateSnow(0);
@@ -1272,7 +1273,7 @@
   stageEl.addEventListener("pointercancel", endDrag);
 
   /* ==================== 树上挂照片（自己添加 · 捏合摘下） ==================== */
-  const PHOTO_N = 5;
+  const PHOTO_N = 0;
   const PHOTO_KEY = "xmas_photos_v1";
   const photoLayerEl = document.getElementById("photoLayer");
   const picBtnEl = document.getElementById("picBtn");
