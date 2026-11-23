@@ -584,6 +584,7 @@
 
   /* ==================== 布局 / 尺寸 ==================== */
   let stageW = 0, stageH = 0, sizeScale = 1;
+  let curProj = DESIGN_H * 0.63, curOffY = 0;   // 供 2D 层（爱心/烟花）复用同一投影
   let angle = 0;
   let running = true;
   let lastTime = 0;
@@ -617,12 +618,15 @@
 
     // 投影强度（每单位在 zp=1 处的像素）：竖屏按宽度重新定标，横屏沿用原比例
     if (portrait) {
-      gl.uniform1f(U.proj, Math.min(glCanvas.height * 0.54, glCanvas.width * 0.86));
-      gl.uniform1f(U.offY, -glCanvas.height * 0.05);
+      curProj = Math.min(glCanvas.height * 0.54, glCanvas.width * 0.86);
+      curOffY = -glCanvas.height * 0.05;
     } else {
-      gl.uniform1f(U.proj, glCanvas.height * 0.63);
-      gl.uniform1f(U.offY, 0);
+      curProj = glCanvas.height * 0.63;
+      curOffY = 0;
     }
+
+    gl.uniform1f(U.proj, curProj);
+    gl.uniform1f(U.offY, curOffY);
 
     // 文字排版：竖屏走“上标题 / 中圣诞树 / 下祝福”的两段式，横屏沿用左侧栏
     const k = h / DESIGN_H;
@@ -700,6 +704,8 @@
     updateSnow(0);
     drawSnow();
     drawSparks();
+    drawHearts(0);
+    drawSparks();
   }
 
   window.addEventListener("resize", layout);
@@ -728,6 +734,9 @@
     updateSnow(dt);
     updateSparks(dt);
     drawSnow();
+    drawSparks();
+    updateHearts(dt);
+    drawHearts(now);
     drawSparks();
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -989,6 +998,114 @@
     spawnFirework((e.clientX - rect.left) / rect.width * DESIGN_W,
                   (e.clientY - rect.top) / rect.height * DESIGN_H);
   });
+
+  /* ==================== 树顶爱心（2D 层：跳动 + 光晕 + 飘散小心） ==================== */
+  const miniHearts = [];
+  let nextMini = 0;
+  const HEART_Y = 0.15;        // 爱心中心相对树顶的高度（世界单位）
+
+  function heartPath(ctx, cx, cy, size) {
+    ctx.beginPath();
+    for (let i = 0; i <= 72; i++) {
+      const t = i / 72 * TAU;
+      const hx = 16 * Math.pow(Math.sin(t), 3);
+      const hy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+      const px = cx + hx / 16 * size;
+      const py = cy - hy / 16 * size * 0.95;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+
+  function heartAnchor() {
+    // 定位在树尖光球上：心形上缘包住树尖，横屏/竖屏都不会跑出画面
+    const y0 = CFG.treeHeight + HEART_Y;
+    const cp = Math.cos(CFG.pitch), sp = Math.sin(CFG.pitch);
+    const zp = y0 * sp + CFG.camDist;
+    const yp = y0 * cp - CFG.camHeight;
+    const f = curProj / zp;
+    const size = Math.min(glCanvas.height * 0.095, f * 0.95);
+    return {
+      x: glCanvas.width * 0.5,
+      y: glCanvas.height * 0.5 - yp * f + curOffY + size * 0.2
+         + (stageEl.classList.contains("portrait") ? glCanvas.height * 0.018 : 0),
+      size: size
+    };
+  }
+
+  function updateHearts(dt) {
+    nextMini -= dt;
+    if (nextMini <= 0) {
+      const a = heartAnchor();
+      const spread = a.size * 1.15;
+      miniHearts.push({
+        x: a.x + uniform(-spread, spread),
+        y: a.y + uniform(-spread * 0.4, spread * 0.5),
+        vy: -uniform(16, 34),
+        vx: uniform(-10, 10),
+        size: a.size * uniform(0.22, 0.42),
+        life: uniform(1.6, 2.8), maxLife: 2.8
+      });
+      nextMini = uniform(0.42, 0.95);
+    }
+    for (let i = miniHearts.length - 1; i >= 0; i--) {
+      const h = miniHearts[i];
+      h.x += h.vx * dt;
+      h.y += h.vy * dt;
+      h.vx += Math.sin(h.life * 3.0) * 6 * dt;
+      h.vy *= 0.995;
+      h.life -= dt;
+      if (h.life <= 0) miniHearts.splice(i, 1);
+    }
+    if (miniHearts.length > 40) miniHearts.splice(0, miniHearts.length - 40);
+  }
+
+  function drawHearts(now) {
+    const a = heartAnchor();
+    if (!isFinite(a.size) || a.size <= 0) return;
+    const ctx = snowCtx;
+    const beat = 1 + 0.085 * Math.pow(Math.max(0, Math.sin(now / 1000 * 1.9)), 8);
+    const size = a.size * beat;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    // 外发光
+    const halo = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, size * 2.4);
+    halo.addColorStop(0.00, "rgba(255,150,198,.50)");
+    halo.addColorStop(0.40, "rgba(255,120,182,.20)");
+    halo.addColorStop(1.00, "rgba(255,90,160,0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, size * 2.4, 0, TAU);
+    ctx.fill();
+
+    // 心形本体
+    heartPath(ctx, a.x, a.y, size);
+    const body = ctx.createLinearGradient(a.x, a.y - size, a.x, a.y + size);
+    body.addColorStop(0.00, "rgba(255,198,228,.96)");
+    body.addColorStop(0.55, "rgba(255,132,186,.92)");
+    body.addColorStop(1.00, "rgba(255,92,160,.88)");
+    ctx.fillStyle = body;
+    ctx.fill();
+
+    ctx.lineWidth = Math.max(1, size * 0.055);
+    ctx.strokeStyle = "rgba(255,238,250,.8)";
+    ctx.stroke();
+
+    // 飘散的小心
+    for (let i = 0; i < miniHearts.length; i++) {
+      const h = miniHearts[i];
+      const k = Math.max(0, h.life / h.maxLife);
+      const al = Math.min(1, k * 1.6);
+      if (al <= 0.02) continue;
+      heartPath(ctx, h.x, h.y, h.size * (0.7 + 0.5 * k));
+      ctx.fillStyle = "rgba(255,168,208," + (al * 0.85).toFixed(3) + ")";
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
 
   /* ==================== 小交互 ==================== */
   document.addEventListener("dblclick", function () {
