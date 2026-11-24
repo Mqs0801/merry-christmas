@@ -274,15 +274,15 @@
   /* ==================== 全局参数（可自行调整） ==================== */
   const CFG = {
     title: "Merry Christmas",   // 第一行文字
-    name:  "圣诞快乐 · 有些话还没说",             // 第二行文字（改这里就能换成你的名字）
+    name:  "圣诞快乐 · 愿你事事顺心",             // 第二行文字（改这里就能换成你的名字）
     poem: [                                   // 名字下面的三行小祝福（随便改）
-      "左边那棵像我，右边那棵像你。",
-      "隔着几步路，我一直在为你亮着。",
-      "剩下那一句，想等雪停再说给你听。"
+      "愿雪落得轻，愿你走得稳。",
+      "愿你想见的人，正好也在想你。",
+      "愿这一年剩下的日子，都温柔。"
     ],
-    footer: "你慢慢来 · 我还在",              // 底部祝福
+    footer: "平安喜乐 · 圣诞快乐",              // 底部祝福
     sign:   "马乾舜",                          // 落款（署名）
-    whisper: "不敢说太多，先把这棵树送给你。",    // 横屏左栏底部小字（竖屏自动隐藏）
+    whisper: "两棵树的灯一直亮着，替我祝你一声。",    // 横屏左栏底部小字（竖屏自动隐藏）
     treePoints:   50000,        // 树体粒子
     groundPoints: 4000,         // 地面光环
     starPoints:   1200,         // 空中星点
@@ -774,7 +774,7 @@
       curProj = Math.min(glCanvas.height * 0.52, glCanvas.width * 0.78);
       curOffY = -glCanvas.height * 0.05;
     } else {
-      curProj = glCanvas.height * 0.63;
+      curProj = glCanvas.height * (h < 470 ? 0.52 : 0.63);
       curOffY = 0;
     }
 
@@ -785,6 +785,7 @@
 
     // 文字排版：竖屏走“上标题 / 中圣诞树 / 下祝福”的两段式，横屏沿用左侧栏
     const k = h / DESIGN_H;
+    const short = !portrait && h < 470;
     if (portrait) {
       textEl.style.maxWidth = "none";
       textEl.style.whiteSpace = "nowrap";
@@ -798,7 +799,7 @@
       headEl.style.alignItems = "center";
       footEl.style.alignItems = "center";
     } else {
-      textEl.style.maxWidth = Math.round(w * 0.30) + "px";
+      textEl.style.maxWidth = Math.round(w * (short ? 0.28 : 0.30)) + "px";
       textEl.style.whiteSpace = "normal";
       textEl.style.left = (40 * (w / DESIGN_W)) + "px";
       textEl.style.right = "auto";
@@ -813,7 +814,7 @@
 
     const fs = portrait
       ? Math.min(Math.max(17, 45 * k), w * 0.075)
-      : Math.min(Math.max(14, 45 * k), w * 0.024);
+      : (short ? Math.min(Math.max(13, h * 0.045), w * 0.028) : Math.min(Math.max(14, 45 * k), w * 0.024));
     line1.style.fontSize = fs + "px";
     line2.style.fontSize = fs + "px";
     textEl.style.gap = (portrait ? 0 : 10 * k) + "px";
@@ -821,7 +822,7 @@
     footEl.style.gap = (portrait ? 9 : 10 * k) + "px";
     poemEl.style.fontSize = (portrait
       ? Math.min(Math.max(12, 22 * k), w * 0.041)
-      : Math.min(Math.max(11, 22 * k), w * 0.0155)) + "px";
+      : (short ? Math.min(Math.max(10, h * 0.028), w * 0.0165) : Math.min(Math.max(11, 22 * k), w * 0.0155))) + "px";
     poemEl.style.lineHeight = portrait ? "1.55" : "2.0";
     poemEl.style.marginTop = portrait ? "0.15em" : "";
     signEl.style.marginTop = portrait ? "0.55em" : "";
@@ -849,7 +850,7 @@
       musicBtn.style.bottom = Math.round(h * 0.03) + "px";
       musicBtn.style.transform = "translateX(-50%)";
       hintEl.style.display = "block";
-      hintEl.textContent = "按住拖动即可转动 · 轻点放烟花";
+      hintEl.textContent = "按住拖动即可转动 · 横过来看更开阔";
     } else {
       musicBtn.style.fontSize = Math.max(10, 13 * k) + "px";
       musicBtn.style.padding = "0.45em 1em";
@@ -1928,8 +1929,13 @@
     const el = document.documentElement;
     if (document.fullscreenElement) {
       if (document.exitFullscreen) document.exitFullscreen();
+      try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {}
     } else if (el.requestFullscreen) {
-      el.requestFullscreen().catch(function () {});
+      el.requestFullscreen().then(function () {
+        try {
+          if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(function () {});
+        } catch (e) {}
+      }).catch(function () {});
     }
   });
   setTimeout(function () { hintEl.style.opacity = "0"; }, 9000);
